@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: "Prompt", sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      max-width: 700px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    button {
+      background: #4CAF50;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    h2 {
+      text-align: center;
+      color: #2e7d32;
+    }
+    #message {
+      margin-top: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    #mySummary {
+      background: #e8f5e9;
+      padding: 10px;
+      border-left: 5px solid #4CAF50;
+      margin-top: 15px;
+      display: none;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    #employeeInfo {
+      font-weight: bold;
+      color: #2e7d32;
+    }
+    .footer {
+      max-width: 700px;
+      margin: 10px auto;
+      text-align: center;
+      font-size: 15px;
+    }
+    .footer a {
+      text-decoration: none;
+      color: #2e7d32;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>บันทึกก้าวเดิน</h2>
+
+    <form id="stepForm">
+      <label>รหัสพนักงาน</label>
+      <input id="employeeId" required placeholder="กรอกรหัสพนักงาน (เช่น 082983)">
+      <div id="employeeInfo"></div>
+
+      <div id="mySummary"></div>
+
+      <label>จำนวนก้าว</label>
+      <input id="steps" type="number" min="0" required placeholder="เช่น 8500">
+
+      <label>หลักฐาน (ภาพ)</label>
+      <input id="proof" type="file" accept="image/*" required>
+
+      <button id="submitBtn" type="submit" disabled>ส่งข้อมูล</button>
+    </form>
+
+    <div id="message"></div>
+  </div>
+
+  <div class="footer">
+    <a href="?page=leaderboard" target="_blank">ดูอันดับรวม (สาธารณะ)</a>
+  </div>
+
+<script>
+let currentEmpId = '';
+const empInput = document.getElementById('employeeId');
+const empInfo = document.getElementById('employeeInfo');
+const submitBtn = document.getElementById('submitBtn');
+const message = document.getElementById('message');
+const mySummary = document.getElementById('mySummary');
+let debounce;
+
+empInput.addEventListener('input', () => {
+  clearTimeout(debounce);
+  empInfo.textContent = 'กำลังตรวจสอบ...';
+  submitBtn.disabled = true;
+  debounce = setTimeout(() => {
+    const id = empInput.value.trim();
+    if (id.length < 2) { empInfo.textContent = ''; mySummary.style.display = 'none'; return; }
+    google.script.run.withSuccessHandler(info => {
+      if (info.error) {
+        empInfo.textContent = info.error;
+        submitBtn.disabled = true;
+        mySummary.style.display = 'none';
+      } else {
+        empInfo.textContent = info.name + ' / ' + info.department;
+        submitBtn.disabled = false;
+        currentEmpId = id;
+
+        // โหลดสรุปข้อมูลของพนักงาน (คะแนน, ยอดก้าว, อันดับ)
+        google.script.run.withSuccessHandler(renderMySummary).getEmployeeSummary(id);
+      }
+    }).getEmployeeData(id);
+  }, 350);
+});
+
+document.getElementById('stepForm').addEventListener('submit', e => {
+  e.preventDefault();
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังส่ง...';
+  const file = document.getElementById('proof').files[0];
+  if (!file) { alert("กรุณาแนบรูปหลักฐาน"); return; }
+
+  const reader = new FileReader();
+  reader.onloadend = function() {
+    const base64 = reader.result.split(',')[1];
+    const payload = {
+      employeeId: empInput.value.trim(),
+      steps: document.getElementById('steps').value,
+      proofBase64: base64,
+      mimeType: file.type
+    };
+    google.script.run.withSuccessHandler(res => {
+      message.textContent = res.message;
+      document.getElementById('stepForm').reset();
+      empInfo.textContent = '';
+      submitBtn.textContent = 'ส่งข้อมูล';
+      submitBtn.disabled = true;
+
+      // โหลดข้อมูลสรุปใหม่
+      google.script.run.withSuccessHandler(renderMySummary).getEmployeeSummary(currentEmpId);
+    }).withFailureHandler(err => {
+      message.textContent = 'ผิดพลาด: ' + err.message;
+      submitBtn.textContent = 'ส่งข้อมูล';
+      submitBtn.disabled = false;
+    }).submitData(payload);
+  };
+  reader.readAsDataURL(file);
+});
+
+function renderMySummary(data) {
+  if (!data || !data.found) {
+    mySummary.style.display = 'none';
+    return;
+  }
+  mySummary.style.display = 'block';
+  mySummary.innerHTML = `
+    <b>ข้อมูลสะสมของฉัน</b><br>
+    🥇 อันดับปัจจุบัน: <b>${data.rank}</b><br>
+    👣 ยอดก้าวสะสม: <b>${data.steps.toLocaleString()}</b><br>
+    ⭐ คะแนนสะสม: <b>${data.score}</b>
+  `;
+}
+</script>
+</body>
+</html>
