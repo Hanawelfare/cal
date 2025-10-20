@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body{font-family:Arial;margin:20px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ccc;padding:8px;text-align:center}
+    th{background:#f2f2f2}
+    button{padding:6px 10px;border-radius:4px;border:none;cursor:pointer}
+    .approve{background:#4CAF50;color:#fff}
+    .reject{background:#f44336;color:#fff}
+  </style>
+</head>
+<body>
+  <h2>✅ ระบบอนุมัติผลก้าว (สำหรับแอดมิน)</h2>
+  <div id="list">กำลังโหลดข้อมูล...</div>
+
+<script>
+function loadPending() {
+  google.script.run.withSuccessHandler(showPending).getPendingSubmissions();
+}
+
+function showPending(items) {
+  const div = document.getElementById('list');
+  if (!items || items.length === 0) {
+    div.innerHTML = '<p>ไม่มีรายการรออนุมัติ</p>';
+    return;
+  }
+  let html = '<table><tr><th>วันที่</th><th>รหัส</th><th>ชื่อ</th><th>แผนก</th><th>ก้าว</th><th>หลักฐาน</th><th>การอนุมัติ</th></tr>';
+  items.forEach(it => {
+    html += `<tr>
+      <td>${new Date(it.date).toLocaleString()}</td>
+      <td>${it.id}</td>
+      <td>${it.name}</td>
+      <td>${it.dept}</td>
+      <td>${Number(it.steps).toLocaleString()}</td>
+      <td><a href="${it.proof}" target="_blank">ดูภาพ</a></td>
+      <td>
+        <button class="approve" onclick="approve(${it.row}, true)">✅</button>
+        <button class="reject" onclick="approve(${it.row}, false)">❌</button>
+      </td>
+    </tr>`;
+  });
+  html += '</table>';
+  div.innerHTML = html;
+}
+
+function approve(row, ok) {
+  google.script.run.withSuccessHandler(loadPending).updateApproval(row, ok);
+}
+
+document.addEventListener('DOMContentLoaded', loadPending);
+</script>
+</body>
+</html>
