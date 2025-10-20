@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body{font-family:Arial;background:#f4f4f4;padding:20px}
+    .card{max-width:900px;margin:auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #ddd;padding:8px;text-align:center}
+    th{background:#f2f2f2}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🏆 อันดับยอดรวมก้าว (ข้อมูลเฉพาะที่อนุมัติแล้ว)</h2>
+    <div id="board">กำลังโหลด...</div>
+  </div>
+
+<script>
+function loadBoard() {
+  google.script.run.withSuccessHandler(render).getLeaderboard();
+}
+
+function render(data) {
+  if (!data || data.length === 0) {
+    document.getElementById('board').innerHTML = '<p>ยังไม่มีข้อมูล</p>';
+    return;
+  }
+  let html = '<table><tr><th>อันดับ</th><th>รหัส</th><th>ยอดก้าวรวม</th></tr>';
+  data.forEach(r => {
+    html += `<tr><td>${r.rank}</td><td>${r.id}</td><td>${Number(r.steps).toLocaleString()}</td></tr>`;
+  });
+  html += '</table>';
+  document.getElementById('board').innerHTML = html;
+}
+document.addEventListener('DOMContentLoaded', loadBoard);
+</script>
+</body>
+</html>
